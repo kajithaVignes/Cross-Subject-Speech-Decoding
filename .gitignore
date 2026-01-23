@@ -1,2 +1,5 @@
 .DS_Store
-data/WilletData/*
+data/WilletData/competitionHoldOut
+data/WilletData/test
+data/WilletData/train
+data/CardData/hdf5_data_final
