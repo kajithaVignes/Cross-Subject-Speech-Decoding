@@ -135,22 +135,15 @@ def collate_card_trials(batch):
         "meta": list(metas),
     }
 
+def get_Card_Dataloader():
+    ds_train = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split="train", feature_subset=None)
+    dl_train = DataLoader(ds_train, batch_size=16, shuffle=True, num_workers=0, collate_fn=collate_card_trials)
+    return dl_train
 
 if __name__ == "__main__":
 
-    ds_train = CardT15TrialDataset(
-        data_root="data/CardData/hdf5_data_final",
-        split="train",
-        feature_subset=None,
-    )
-
-    dl_train = DataLoader(
-        ds_train,
-        batch_size=16,
-        shuffle=True,
-        num_workers=0,
-        collate_fn=collate_card_trials,
-    )
+    ds_train = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split="train", feature_subset=None)
+    dl_train = DataLoader(ds_train, batch_size=16, shuffle=True, num_workers=0, collate_fn=collate_card_trials)
 
     batch = next(iter(dl_train))
     print(batch["input_features"].shape)

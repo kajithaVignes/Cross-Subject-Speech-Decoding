@@ -136,6 +136,12 @@ def collate_willett_trials(batch):
         "meta": list(metas),
     }
 
+def get_Willet_DataLoader():
+    ds = WillettTrialDataset("data/WilletData/train", use_area6v_only=True)
+    dl = DataLoader(ds, batch_size=8, shuffle=True, num_workers=0, collate_fn=collate_willett_trials)
+
+    return dl
+
 if __name__ == "__main__":
 
     ds = WillettTrialDataset("data/WilletData/train", use_area6v_only=True)
