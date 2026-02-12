@@ -1,15 +1,17 @@
 from collections import defaultdict
-from torch.utils.data import Sampler
+from torch.utils.data import Sampler, DataLoader
 import random
 import math
-from torch.utils.data import DataLoader
 
 from .processCard import CardT15TrialDataset, collate_card_trials
-from .processWillet import WillettTrialDataset, collate_willett_trials
+from .processWillet import WillettTrialDataset, collate_willett_trials, PhonemeTargeter
+from src.gen_assets.make_phoneme_willet import build_phone2id_from_tokens, load_lexicon_nostress
+from src.model.decoder import TOKENS
+
 
 class IndexGroupedBatchSampler(Sampler):
     """
-    Groups by key computed from dataset.index[idx] (no dataset[idx] calls).
+    Groups by key computed from dataset.index[idx]
     """
     def __init__(self, dataset, batch_size: int, key_from_index, shuffle=True, drop_last=True):
         self.dataset = dataset
@@ -52,48 +54,62 @@ class IndexGroupedBatchSampler(Sampler):
         return total
 
 
+def get_Card_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
+    """
+    Returns a DataLoader for Card dataset.
 
-def get_Card_Dataloader_grouped(batch_size=16, split="train"):
+    num_workers=0 by default because:
+      - Safe for debugging
+      - Avoids multiprocessing issues on WSL / AMD CPUs
+      - You can increase it later to speed up data loading
+    """
     ds = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split=split)
 
     def key_from_index(dataset, idx):
-        fp, trial_key = dataset.index[idx]   # fp is a Path to data_train.hdf5
-        return fp.parent.name.lower()        # t15.YYYY.MM.DD
+        fp, trial_key = dataset.index[idx]
+        return fp.parent.name.lower()
 
     sampler = IndexGroupedBatchSampler(ds, batch_size=batch_size, key_from_index=key_from_index)
-    return DataLoader(ds, batch_sampler=sampler, num_workers=0, collate_fn=collate_card_trials)
+    return DataLoader(
+        ds,
+        batch_sampler=sampler,
+        num_workers=num_workers,
+        collate_fn=collate_card_trials,
+        pin_memory=True
+    )
 
 
-def get_Willet_Dataloader_grouped(batch_size=8, split="train"):
-    ds = WillettTrialDataset(f"data/WilletData/{split}", use_area6v_only=True)
+def get_Willet_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
+    """
+    Returns a DataLoader for Willett dataset.
+
+    num_workers=0 by default for the same reasons as above.
+    """
+    phone2id = build_phone2id_from_tokens(TOKENS)
+    lex = load_lexicon_nostress("data/assets/lexicon_nostress.txt")
+
+    targeter = PhonemeTargeter(
+        lexicon=lex,
+        phone2id=phone2id,
+        sil_phone="sil",
+        use_sil_between_words=True,
+        drop_oov_words=True,
+    )
+
+    ds = WillettTrialDataset(f"data/WilletData/{split}", use_area6v_only=True, targeter=targeter)
 
     def key_from_index(dataset, idx):
-        fp, i = dataset.index[idx]     # fp is a Path to t12.YYYY.MM.DD.mat
-        return fp.stem.lower()         # t12.YYYY.MM.DD
+        fp, i = dataset.index[idx]
+        return fp.stem.lower()
 
     sampler = IndexGroupedBatchSampler(ds, batch_size=batch_size, key_from_index=key_from_index)
-    return DataLoader(ds, batch_sampler=sampler, num_workers=0, collate_fn=collate_willett_trials)
-
-
-def mixed_batch_iterator(card_loader, willett_loader):
-    it_c = iter(card_loader)
-    it_w = iter(willett_loader)
-
-    while True:
-        # Card
-        try:
-            yield "card", next(it_c)
-        except StopIteration:
-            it_c = iter(card_loader)
-            yield "card", next(it_c)
-
-        # Willett
-        try:
-            yield "willett", next(it_w)
-        except StopIteration:
-            it_w = iter(willett_loader)
-            yield "willett", next(it_w)
-
+    return DataLoader(
+        ds,
+        batch_sampler=sampler,
+        num_workers=num_workers,
+        collate_fn=collate_willett_trials,
+        pin_memory=True
+    )
 
 
 class MixedBatchIterator:
@@ -130,5 +146,3 @@ class MixedBatchIterator:
             batch["_source"] = key
             yield batch
             step += 1
-
-

@@ -134,7 +134,7 @@ class WillettTrialDataset(Dataset):
 
 
 def collate_willett_trials(batch):
-    xs, ys, y_lens, texts, metas = zip(*batch)
+    xs, ys, y_lens, trs, metas = zip(*batch)
 
     x_lens = torch.tensor([x.shape[0] for x in xs], dtype=torch.long)
     xs_pad = pad_sequence(xs, batch_first=True, padding_value=0.0)
@@ -144,6 +144,7 @@ def collate_willett_trials(batch):
         y_lens_t = torch.tensor([int(l) for l in y_lens], dtype=torch.long)
         ys_pad = pad_sequence(list(ys), batch_first=True, padding_value=0)
     else:
+        print("Willet: Y NONE")
         ys_pad = None
         y_lens_t = None
 
@@ -152,16 +153,12 @@ def collate_willett_trials(batch):
         "n_time_steps": x_lens,
         "seq_class_ids": ys_pad,
         "phone_seq_lens": y_lens_t,
-        "texts": list(texts),
+        "texts": list(trs),
         "meta": list(metas),
     }
 
 
 if __name__ == "__main__":
-
-    TOKENS = ["<blk>", "AA","AE","AH","AO","AW","AY","B","CH","D","DH","EH","ER","EY","F","G",
-          "HH","IH","IY","JH","K","L","M","N","NG","OW","OY","P","R","S","SH","T","TH",
-          "UH","UW","V","W","Y","Z","ZH","sil"]
 
     phone2id = build_phone2id_from_tokens(TOKENS)
     lex = load_lexicon_nostress("data/assets/lexicon_nostress.txt")

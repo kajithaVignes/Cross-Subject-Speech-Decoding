@@ -14,6 +14,7 @@ class Encoder(nn.Module):
         self.phoneme_class = phoneme_class
         self.blank_id = blank_id
 
+        self.in_256_to_input = nn.Linear(256, input_dim) if input_dim != 256 else None
 
         self.linear = SessionAlignement(input_dim)
 
@@ -36,6 +37,14 @@ class Encoder(nn.Module):
         return z
 
     def forward(self, X, input_len, session_key):
+
+        if X.size(-1) != self.input_dim:
+            if X.size(-1) == 256 and self.in_256_to_input is not None:
+                X = self.in_256_to_input(X)
+            else:
+                raise RuntimeError(
+                    f"Encoder expected feature dim {self.input_dim}, got {X.size(-1)}"
+                )
 
         X = self.linear(X, session_key) 
 
