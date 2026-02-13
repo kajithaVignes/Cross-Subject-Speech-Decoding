@@ -26,7 +26,7 @@ class CardT15TrialDataset(Dataset):
     Returns:
       - x: (T_i, F) : neural features (often F=512)
       - y: (L,) or None : seq_class_ids (phoneme labels) if present
-      - t: Tensor or None : transcription if present
+      - t: str or None : transcription text if present
       - meta: file/session/trial metadata
     """
 
@@ -77,7 +77,23 @@ class CardT15TrialDataset(Dataset):
 
             # Optional labels (not in test)
             y = g["seq_class_ids"][:] if "seq_class_ids" in g else None
-            tr = g["transcription"][:] if "transcription" in g else None
+            
+            # Transcription: decode ASCII bytes to text string
+            tr_text = None
+            if "transcription" in g:
+                tr_array = g["transcription"][:]
+                # Remove padding (zeros) and decode ASCII bytes
+                non_zero = tr_array[tr_array != 0]
+                if len(non_zero) > 0:
+                    try:
+                        tr_text = bytes(non_zero).decode('utf-8', errors='ignore').strip()
+                    except Exception as e:
+                        print(f"Warning: failed to decode transcription in {trial_key}: {e}")
+                        tr_text = None
+            
+            # Fallback: try sentence_label attribute if transcription doesn't exist or failed
+            if tr_text is None and "sentence_label" in g.attrs:
+                tr_text = str(g.attrs["sentence_label"])
 
             # Attributes (may be missing in test)
             n_time_steps = int(g.attrs.get("n_time_steps", x.shape[0]))
@@ -88,12 +104,8 @@ class CardT15TrialDataset(Dataset):
         x_t = torch.from_numpy(x).float()
         y_t = torch.from_numpy(y).long() if y is not None else None
 
-        tr_t = None
-        if tr is not None:
-            if isinstance(tr, np.ndarray) and tr.dtype.kind in "iu":
-                tr_t = torch.from_numpy(tr).long()
-            else:
-                tr_t = None
+        print(f"CARD Y: {y}")
+        print(f"CARD Transcription: {tr_text}")
 
         meta = {
             "split": self.split,
@@ -108,7 +120,7 @@ class CardT15TrialDataset(Dataset):
             "subject_key": "t15"
         }
 
-        return x_t, y_t, tr_t, meta
+        return x_t, y_t, tr_text, meta
 
 def infer_day_key_from_card_meta(meta):
     sess = Path(meta["session_dir"]).name.lower()
@@ -116,35 +128,31 @@ def infer_day_key_from_card_meta(meta):
 
 def collate_card_trials(batch):
     """
-    batch: list of (x, y, tr, meta)
+    batch: list of (x, y, tr_text, meta)
     Returns padded tensors + lengths.
     """
-    xs, ys, trs, metas = zip(*batch)
+    xs, ys, tr_texts, metas = zip(*batch)
 
     x_lens = torch.tensor([x.shape[0] for x in xs], dtype=torch.long)
     xs_pad = pad_sequence(xs, batch_first=True, padding_value=0.0)  # (B, T_max, F)
 
     if all(y is not None for y in ys):
-        y_lens = y_lens = torch.tensor([m["seq_len"] for m in metas], dtype=torch.long)
+        y_lens = torch.tensor([y.shape[0] for y in ys], dtype=torch.long)
         ys_pad = pad_sequence(list(ys), batch_first=True, padding_value=0)  # (B, L_max)
     else:
         y_lens = None
         ys_pad = None
 
-    # transcription
+    # transcription: now a list of strings (or None)
     return {
         "input_features": xs_pad,
         "n_time_steps": x_lens,
         "seq_class_ids": ys_pad,
         "phone_seq_lens": y_lens,
-        "transcriptions": list(trs),
+        "texts": list(tr_texts),  # List of strings or None
         "meta": list(metas),
     }
 
-def get_Card_Dataloader():
-    ds_train = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split="train", feature_subset=None)
-    dl_train = DataLoader(ds_train, batch_size=16, shuffle=True, num_workers=0, collate_fn=collate_card_trials)
-    return dl_train
 
 if __name__ == "__main__":
 
@@ -156,3 +164,4 @@ if __name__ == "__main__":
     batch = next(iter(dl_train))
     print(batch["input_features"].shape)
     print(batch["n_time_steps"][:5])
+    print("Texts:", batch["texts"][:3])

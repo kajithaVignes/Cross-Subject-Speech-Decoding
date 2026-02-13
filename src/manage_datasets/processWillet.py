@@ -128,6 +128,9 @@ class WillettTrialDataset(Dataset):
             "subject_key": "t12"
         }
 
+        print(f"WILLETT Y: {y_ids}")
+        print(f"WILLETT Transcription: {text}")
+
         return x_t, y_t, y_len, text, meta
 
 

@@ -8,13 +8,10 @@ from .model.encoder import Encoder
 from .model.CTC_Loss import Hierarchical_Loss
 from .model.decoder import *
 from .test import testWillet, testCard, quick_eval_wer
-from datetime import datetime
+from .model.utils import save_checkpoint, get_device
 
 NB_STEPS = 350
 BATCH_SZ = 40
-
-def get_device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def concat_ctc_targets(y_pad: torch.Tensor, y_lens: torch.Tensor) -> torch.Tensor:
     parts = []
@@ -68,6 +65,8 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
 
     for step in pbar:
         batch = next(iterator)
+
+        src = batch.get("_source", "?")
 
         x = batch["input_features"].to(device)
         x_lens = batch["n_time_steps"].to(device)
@@ -133,49 +132,6 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
     return model
 
 
-def save_checkpoint(model, optimizer, step: int, extra: dict | None = None, folder="checkpoints", base_name="ckpt"):
-    folder = Path(folder)
-    folder.mkdir(parents=True, exist_ok=True)
-
-    is_manual = base_name.startswith("_")
-
-    if is_manual:
-        filename = f"{base_name}.pt"
-    else:
-        timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
-        filename = f"{base_name}_{timestamp}.pt"
-
-    full_path = folder / filename
-
-    ckpt = {
-        "model_state": model.state_dict(),
-        "optim_state": optimizer.state_dict() if optimizer else None,
-        "step": step,
-        "extra": extra or {},
-        "timestamp": datetime.now().isoformat(),
-    }
-    torch.save(ckpt, full_path)
-    print(f"✅ saved checkpoint to {full_path}")
-
-    if not is_manual:
-        auto_ckpts = sorted([f for f in folder.glob(f"{base_name}_*.pt") if not f.name.startswith("_")],
-                            key=lambda x: x.stat().st_mtime)
-        for old_ckpt in auto_ckpts[:-5]:
-            old_ckpt.unlink()
-            print(f"🗑️ deleted old checkpoint: {old_ckpt.name}")
-
-
-def load_checkpoint(model, optimizer, path, map_location="cpu"):
-    ckpt = torch.load(path, map_location=map_location)
-    model.load_state_dict(ckpt["model_state"])
-    if optimizer is not None and ckpt.get("optim_state") is not None:
-        optimizer.load_state_dict(ckpt["optim_state"])
-    step = ckpt.get("step", 0)
-    extra = ckpt.get("extra", {})
-    print(f"loaded checkpoint from {path} (step={step})")
-    return step, extra
-
-
 if __name__ == "__main__":
     dl_card = get_Card_Dataloader_grouped(batch_size=BATCH_SZ, split="train", num_workers=4)
     dl_will = get_Willet_Dataloader_grouped(batch_size=BATCH_SZ, split="train", num_workers=4)
@@ -200,5 +156,3 @@ if __name__ == "__main__":
 
     # Exemple de checkpoint manuel
     # save_checkpoint(model, None, step=5, extra={"note": "manual"}, base_name="_manual_best")
-
-    testCard(model, decoder, device, batch_size=BATCH_SZ)
