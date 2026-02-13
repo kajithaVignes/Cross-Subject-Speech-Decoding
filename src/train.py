@@ -30,12 +30,6 @@ def lr_warmup_cosine(step: int, total: int, warmup: int, base_lr: float, final_l
     t = max(0.0, min(1.0, t))
     return final_lr + (base_lr - final_lr) * 0.5 * (1.0 + math.cos(math.pi * t))
 
-@torch.no_grad()
-def sanity_check_session_pure(batch):
-    k = batch["meta"][0]["session_key"]
-    assert all(m["session_key"] == k for m in batch["meta"])
-    return k
-
 def train(dataloader, decoder, device, steps=NB_STEPS):
     print(f"gpu : {device}")
 
@@ -52,7 +46,7 @@ def train(dataloader, decoder, device, steps=NB_STEPS):
     return model
 
 
-def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, lr=1e-3, decoder=None, save_folder="checkpoints", save_base="ckpt", eval="loss"):
+def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, lr=1e-3, decoder=None, save_folder="checkpoints", save_base="ckpt"):
     model.train()
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
 
@@ -90,6 +84,7 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
         running += loss_val
 
         if (step + 1) % log_every == 0:
+            # Display loss
             current_avg_loss = running / log_every
             src = batch.get("_source", "?")
             pbar.set_postfix(loss=f"{current_avg_loss:.4f}", src=src)
@@ -103,31 +98,16 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
                 model.train()
 
         if (step + 1) % 25 == 0:
-            if eval == "wer":
-                wer = quick_eval_wer(model, decoder, val_iter, device, max_batches=20)
-                pbar.write(f"[eval] step={step+1} WER={wer:.4f}")
-
-                if wer < best_wer:
-                    best_wer = wer
-                    save_checkpoint(
-                        model, opt, step=step + 1,
-                        extra={"best_wer": best_wer},
-                        folder=save_folder,
-                        base_name=save_base
-                    )
-                    pbar.write(f"Saved best (WER={best_wer:.4f})")
-
-                model.train()
-            else:
-                if current_avg_loss < best_loss:
-                    best_loss = current_avg_loss
-                    save_checkpoint(
-                        model, opt, step=step + 1,
-                        extra={"best_loss": best_loss, "metric": "loss"},
-                        folder=save_folder,
-                        base_name=save_base
-                    )
-                    pbar.write(f"✅ saved best (loss={best_loss:.4f})")
+            # Save checkpoint
+            if current_avg_loss < best_loss:
+                best_loss = current_avg_loss
+                save_checkpoint(
+                    model, opt, step=step + 1,
+                    extra={"best_loss": best_loss, "metric": "loss"},
+                    folder=save_folder,
+                    base_name=save_base
+                )
+                pbar.write(f"✅ saved best (loss={best_loss:.4f})")
 
     return model
 
@@ -151,8 +131,8 @@ if __name__ == "__main__":
 
     model = train(mixed, decoder, device, steps=NB_STEPS)
 
-    # Checkpoint automatique horodaté
+    # Checkpoint automatique
     save_checkpoint(model, None, step=NB_STEPS, extra={"test": "checkpoint"})
 
-    # Exemple de checkpoint manuel
+    # checkpoint manuel
     # save_checkpoint(model, None, step=5, extra={"note": "manual"}, base_name="_manual_best")

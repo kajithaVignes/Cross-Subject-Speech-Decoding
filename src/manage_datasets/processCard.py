@@ -82,7 +82,7 @@ class CardT15TrialDataset(Dataset):
             tr_text = None
             if "transcription" in g:
                 tr_array = g["transcription"][:]
-                # Remove padding (zeros) and decode ASCII bytes
+                # Remove padding and decode ASCII bytes
                 non_zero = tr_array[tr_array != 0]
                 if len(non_zero) > 0:
                     try:
@@ -91,11 +91,9 @@ class CardT15TrialDataset(Dataset):
                         print(f"Warning: failed to decode transcription in {trial_key}: {e}")
                         tr_text = None
             
-            # Fallback: try sentence_label attribute if transcription doesn't exist or failed
             if tr_text is None and "sentence_label" in g.attrs:
                 tr_text = str(g.attrs["sentence_label"])
 
-            # Attributes (may be missing in test)
             n_time_steps = int(g.attrs.get("n_time_steps", x.shape[0]))
             seq_len = int(g.attrs.get("seq_len", 0))
             block_num = int(g.attrs.get("block_num", -1))
@@ -143,13 +141,12 @@ def collate_card_trials(batch):
         y_lens = None
         ys_pad = None
 
-    # transcription: now a list of strings (or None)
     return {
         "input_features": xs_pad,
         "n_time_steps": x_lens,
         "seq_class_ids": ys_pad,
         "phone_seq_lens": y_lens,
-        "texts": list(tr_texts),  # List of strings or None
+        "texts": list(tr_texts),
         "meta": list(metas),
     }
 

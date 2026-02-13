@@ -55,14 +55,7 @@ class IndexGroupedBatchSampler(Sampler):
 
 
 def get_Card_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
-    """
-    Returns a DataLoader for Card dataset.
 
-    num_workers=0 by default because:
-      - Safe for debugging
-      - Avoids multiprocessing issues on WSL / AMD CPUs
-      - You can increase it later to speed up data loading
-    """
     ds = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split=split)
 
     def key_from_index(dataset, idx):
@@ -80,11 +73,7 @@ def get_Card_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
 
 
 def get_Willet_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
-    """
-    Returns a DataLoader for Willett dataset.
 
-    num_workers=0 by default for the same reasons as above.
-    """
     phone2id = build_phone2id_from_tokens(TOKENS)
     lex = load_lexicon_nostress("data/assets/lexicon_nostress.txt")
 
