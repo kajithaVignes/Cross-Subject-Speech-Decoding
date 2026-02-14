@@ -5,7 +5,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class Encoder(nn.Module):
 
-    def __init__(self, input_dim: int, d: int, phoneme_class: int, blank_id: int = 0):
+    def __init__(self, input_dim: int, d: int, phoneme_class: int, blank_id: int = 0,learnable=True):
         super().__init__()
         assert d % 2 == 0
 
@@ -13,10 +13,11 @@ class Encoder(nn.Module):
         self.d = d
         self.phoneme_class = phoneme_class
         self.blank_id = blank_id
+        self.learnable = learnable
 
         self.in_256_to_input = nn.Linear(256, input_dim) if input_dim != 256 else None
 
-        self.linear = SessionAlignement(input_dim)
+        self.linear = SessionAlignement(input_dim,learnable=self.learnable)
 
         bi_h = d // 2
         self.gru_early = nn.GRU(input_dim, bi_h, num_layers=2, batch_first=True, bidirectional=True)
@@ -66,16 +67,23 @@ class Encoder(nn.Module):
 
 
 class SessionAlignement(nn.Module):
-    def __init__(self, input_dim: int):
+    def __init__(self, input_dim: int,learnable=True):
         super().__init__()
         self.input_dim = input_dim
+        self.learnable = learnable
         self.transforms = nn.ModuleDict()
 
     def get(self, session_key, device=None) -> nn.Linear:
         if session_key not in self.transforms:
-            layer = nn.Linear(self.input_dim, self.input_dim, bias=True)
-            nn.init.eye_(layer.weight)
-            nn.init.zeros_(layer.bias)
+            
+            if self.learnable:
+                layer = nn.Linear(self.input_dim, self.input_dim, bias=True)
+                nn.init.eye_(layer.weight)
+                nn.init.zeros_(layer.bias)
+        
+            else:
+                layer = nn.Identity()
+                
             if device is not None:
                 layer = layer.to(device) 
             self.transforms[session_key] = layer

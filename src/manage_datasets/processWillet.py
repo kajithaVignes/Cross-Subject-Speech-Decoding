@@ -6,7 +6,19 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 from collections import defaultdict
-from src.gen_assets.make_phoneme_willet import PhonemeTargeter
+from src.gen_assets.make_phoneme_willet import (
+    PhonemeTargeter,
+    load_lexicon_nostress,
+    build_phone2id_from_tokens,
+)
+
+TOKENS = [
+  "<blk>",
+  "AA","AE","AH","AO","AW","AY","B","CH","D","DH","EH","ER","EY","F","G",
+  "HH","IH","IY","JH","K","L","M","N","NG","OW","OY","P","R","S","SH",
+  "T","TH","UH","UW","V","W","Y","Z","ZH",
+  "sil",  
+]
 
 class WillettTrialDataset(Dataset):
     """
@@ -128,8 +140,6 @@ class WillettTrialDataset(Dataset):
             "subject_key": "t12"
         }
 
-        print(f"WILLETT Y: {y_ids}")
-        print(f"WILLETT Transcription: {text}")
 
         return x_t, y_t, y_len, text, meta
 
@@ -174,7 +184,7 @@ if __name__ == "__main__":
         drop_oov_words=True,
     )
 
-    ds = WillettTrialDataset("data/WilletData/train", use_area6v_only=True, targeter=targeter, max_target_len=500)
+    ds = WillettTrialDataset("/Vrac/kj/competitionData/train", use_area6v_only=True, targeter=targeter, max_target_len=500)
     dl = DataLoader(ds, batch_size=8, shuffle=True, num_workers=0, collate_fn=collate_willett_trials)
 
     batch = next(iter(dl))

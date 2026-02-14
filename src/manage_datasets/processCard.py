@@ -102,9 +102,6 @@ class CardT15TrialDataset(Dataset):
         x_t = torch.from_numpy(x).float()
         y_t = torch.from_numpy(y).long() if y is not None else None
 
-        print(f"CARD Y: {y}")
-        print(f"CARD Transcription: {tr_text}")
-
         meta = {
             "split": self.split,
             "file_path": str(fp),
@@ -153,7 +150,7 @@ def collate_card_trials(batch):
 
 if __name__ == "__main__":
 
-    ds_train = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split="train", feature_subset=None)
+    ds_train = CardT15TrialDataset(data_root="/Vrac/kj/hdf5_data_final", split="train", feature_subset=None)
     dl_train = DataLoader(ds_train, batch_size=16, shuffle=True, num_workers=0, collate_fn=collate_card_trials)
 
     print(len(ds_train))

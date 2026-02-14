@@ -10,7 +10,7 @@ from .model.decoder import *
 from .test import testWillet, testCard, quick_eval_wer
 from .model.utils import save_checkpoint, get_device
 
-NB_STEPS = 350
+NB_STEPS = 1000
 BATCH_SZ = 40
 
 def concat_ctc_targets(y_pad: torch.Tensor, y_lens: torch.Tensor) -> torch.Tensor:
@@ -58,6 +58,7 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
     current_avg_loss = 0.0
 
     for step in pbar:
+
         batch = next(iterator)
 
         src = batch.get("_source", "?")
@@ -118,14 +119,15 @@ if __name__ == "__main__":
 
     mixed = MixedBatchIterator(loaders={"card": dl_card, "willett": dl_will}, strategy="alternate")
 
-    decoder = build_ta_ctc_decoder(
-        lexicon_path="data/assets/lexicon_nostress.txt",
-        arpa_path="data/assets/3-gram.arpa",
-        tokens=TOKENS,
-        lm_weight=2.0,
-        word_score=1.0,
-        beam_size=100,
-    )
+    try:
+        decoder = build_ta_ctc_decoder(
+            tokens=TOKENS,
+            lexicon_path="data/assets/lexicon_nostress.txt",
+            lm_path="data/assets/3-gram.arpa",
+        )
+    except Exception as e:
+        print(f"[WARN] Decoder désactivé (flashlight/kenlm manquant): {e}")
+        decoder = None
 
     device = get_device()
 
@@ -133,6 +135,7 @@ if __name__ == "__main__":
 
     # Checkpoint automatique
     save_checkpoint(model, None, step=NB_STEPS, extra={"test": "checkpoint"})
-
+    del model
+    torch.cuda.empty_cache()
     # checkpoint manuel
     # save_checkpoint(model, None, step=5, extra={"note": "manual"}, base_name="_manual_best")

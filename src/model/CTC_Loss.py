@@ -6,7 +6,6 @@ import torch.nn.functional as F
 class Hierarchical_Loss(nn.Module):
     def __init__(self,balance):
         super().__init__()
-        assert(0 < balance < 1)
         self.balance=balance
         blank=0
         self.ctc1 = nn.CTCLoss(blank=blank, zero_infinity=True)

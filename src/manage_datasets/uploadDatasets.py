@@ -56,7 +56,7 @@ class IndexGroupedBatchSampler(Sampler):
 
 def get_Card_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
 
-    ds = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split=split)
+    ds = CardT15TrialDataset(data_root="/Vrac/kj/hdf5_data_final", split=split)
 
     def key_from_index(dataset, idx):
         fp, trial_key = dataset.index[idx]
@@ -85,7 +85,7 @@ def get_Willet_Dataloader_grouped(batch_size=16, split="train", num_workers=0):
         drop_oov_words=True,
     )
 
-    ds = WillettTrialDataset(f"data/WilletData/{split}", use_area6v_only=True, targeter=targeter)
+    ds = WillettTrialDataset(f"/Vrac/kj/competitionData/{split}", use_area6v_only=True, targeter=targeter)
 
     def key_from_index(dataset, idx):
         fp, i = dataset.index[idx]
