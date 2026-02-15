@@ -1,5 +1,6 @@
 import math
 import torch
+import os  # Added to handle file paths
 from pathlib import Path
 from tqdm import trange, tqdm
 from torch.cuda.amp import autocast, GradScaler
@@ -30,7 +31,7 @@ def lr_warmup_cosine(step: int, total: int, warmup: int, base_lr: float, final_l
     t = max(0.0, min(1.0, t))
     return final_lr + (base_lr - final_lr) * 0.5 * (1.0 + math.cos(math.pi * t))
 
-def train(dataloader, decoder, device, steps=NB_STEPS):
+def train(dataloader, decoder, device, steps=NB_STEPS, base_name="ckpt", save_path="checkpoints"):
     print(f"gpu : {device}")
 
     b = next(iter(dataloader))
@@ -38,28 +39,42 @@ def train(dataloader, decoder, device, steps=NB_STEPS):
     PHONEME_CLASSES = max_id + 1
     input_dim = b["input_features"].shape[-1]
 
-    model = Encoder(input_dim=512, d=256, phoneme_class=PHONEME_CLASSES).to(device)
+    model = Encoder(input_dim=512, d=256, phoneme_class=PHONEME_CLASSES, learnable=True).to(device)
     criterion = Hierarchical_Loss(balance=0.3).to(device)
 
-    train_mixed(model, criterion, dataloader, device, steps=steps, log_every=10, decoder=decoder)
+    train_mixed(model, criterion, dataloader, device, steps=steps, log_every=10, 
+                decoder=decoder, save_base=base_name, save_folder=save_path)
 
     return model
 
 
-def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, lr=1e-3, decoder=None, save_folder="checkpoints", save_base="ckpt"):
+def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, lr=1e-3, 
+                decoder=None, save_folder="checkpoints", save_base="ckpt"):
+    
+    os.makedirs(save_folder, exist_ok=True)
+
+    log_path = os.path.join(save_folder, f"{save_base}_loss.csv")
+    
+    if not os.path.exists(log_path):
+        with open(log_path, "w") as f:
+            f.write("step,loss\n")
+    # -------------------------
+
     model.train()
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
 
     pbar = tqdm(range(steps), desc="train")
     running = 0.0
-    best_wer = float("inf")
     best_loss = float("inf")
     iterator = iter(mixed_iter)
     current_avg_loss = 0.0
 
     for step in pbar:
-
-        batch = next(iterator)
+        try:
+            batch = next(iterator)
+        except StopIteration:
+            iterator = iter(mixed_iter)
+            batch = next(iterator)
 
         src = batch.get("_source", "?")
 
@@ -85,11 +100,14 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
         running += loss_val
 
         if (step + 1) % log_every == 0:
-            # Display loss
+            # Calculate average loss
             current_avg_loss = running / log_every
+
+            with open(log_path, "a") as f:
+                f.write(f"{step + 1},{current_avg_loss:.5f}\n")
+
             src = batch.get("_source", "?")
             pbar.set_postfix(loss=f"{current_avg_loss:.4f}", src=src)
-            print("")
             running = 0.0
 
             if decoder is not None:
@@ -100,7 +118,7 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
 
         if (step + 1) % 25 == 0:
             # Save checkpoint
-            if current_avg_loss < best_loss:
+            if current_avg_loss < best_loss and current_avg_loss > 0:
                 best_loss = current_avg_loss
                 save_checkpoint(
                     model, opt, step=step + 1,
@@ -108,7 +126,7 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
                     folder=save_folder,
                     base_name=save_base
                 )
-                pbar.write(f"✅ saved best (loss={best_loss:.4f})")
+                pbar.write(f"saved best (loss={best_loss:.4f})")
 
     return model
 
@@ -131,11 +149,8 @@ if __name__ == "__main__":
 
     device = get_device()
 
-    model = train(mixed, decoder, device, steps=NB_STEPS)
+    model = train(mixed, decoder, device, steps=NB_STEPS, base_name="training_run")
 
-    # Checkpoint automatique
-    save_checkpoint(model, None, step=NB_STEPS, extra={"test": "checkpoint"})
+    save_checkpoint(model, None, step=NB_STEPS, extra={"test": "checkpoint"}, base_name="_training_run_FINISHED")
     del model
     torch.cuda.empty_cache()
-    # checkpoint manuel
-    # save_checkpoint(model, None, step=5, extra={"note": "manual"}, base_name="_manual_best")
