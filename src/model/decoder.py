@@ -17,7 +17,7 @@ TOKENS = [
 ]
 
 
-def build_ta_ctc_decoder(lexicon_path: str, arpa_path: str, tokens: list[str], beam_size=50, beam_threshold=20.0, lm_weight=2.0, word_score=1.0,blank_token="<blk>"):
+def build_ta_ctc_decoder(lexicon_path, arpa_path, tokens, beam_size=50, beam_threshold=20.0, lm_weight=2.0, word_score=1.0, blank_token="<blk>"):
     return torchaudio.models.decoder.ctc_decoder(
         lexicon=lexicon_path,
         tokens=tokens,
@@ -33,7 +33,7 @@ def build_ta_ctc_decoder(lexicon_path: str, arpa_path: str, tokens: list[str], b
 
 
 @torch.no_grad()
-def ta_decode_batch(decoder, logits: torch.Tensor, lengths: torch.Tensor) -> list[str]:
+def ta_decode_batch(decoder, logits, lengths):
     logp = F.log_softmax(logits.float(), dim=-1).to(torch.float32).cpu()
     lengths = lengths.to(torch.int64).cpu()
     hyps = decoder(logp, lengths)

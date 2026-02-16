@@ -9,16 +9,6 @@ from torch.nn.utils.rnn import pad_sequence
 
 SPLITS = ("train", "val", "test")
 
-def _split_from_filename(name):
-    n = name.lower()
-    if "data_train" in n:
-        return "train"
-    if "data_val" in n:
-        return "val"
-    if "data_test" in n:
-        return "test"
-    return "unknown"
-
 class CardT15TrialDataset(Dataset):
     """
     Dataset for Card
@@ -61,10 +51,10 @@ class CardT15TrialDataset(Dataset):
         if len(self.index) == 0:
             raise RuntimeError(f"Found split files, but no trial_{split} groups under them: {self.files[:3]} ...")
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.index)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx):
         fp, trial_key = self.index[idx]
         session_dir = fp.parent
 
@@ -101,9 +91,6 @@ class CardT15TrialDataset(Dataset):
 
         x_t = torch.from_numpy(x).float()
         y_t = torch.from_numpy(y).long() if y is not None else None
-
-        print(f"CARD Y: {y}")
-        print(f"CARD Transcription: {tr_text}")
 
         meta = {
             "split": self.split,
@@ -149,16 +136,3 @@ def collate_card_trials(batch):
         "texts": list(tr_texts),
         "meta": list(metas),
     }
-
-
-if __name__ == "__main__":
-
-    ds_train = CardT15TrialDataset(data_root="data/CardData/hdf5_data_final", split="train", feature_subset=None)
-    dl_train = DataLoader(ds_train, batch_size=16, shuffle=True, num_workers=0, collate_fn=collate_card_trials)
-
-    print(len(ds_train))
-
-    batch = next(iter(dl_train))
-    print(batch["input_features"].shape)
-    print(batch["n_time_steps"][:5])
-    print("Texts:", batch["texts"][:3])

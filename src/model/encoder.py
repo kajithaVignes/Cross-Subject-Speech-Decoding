@@ -71,7 +71,7 @@ class SessionAlignement(nn.Module):
         self.input_dim = input_dim
         self.transforms = nn.ModuleDict()
 
-    def get(self, session_key, device=None) -> nn.Linear:
+    def get(self, session_key, device=None):
         if session_key not in self.transforms:
             layer = nn.Linear(self.input_dim, self.input_dim, bias=True)
             nn.init.eye_(layer.weight)

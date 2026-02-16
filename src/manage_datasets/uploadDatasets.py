@@ -11,7 +11,7 @@ from src.model.decoder import TOKENS
 
 class IndexGroupedBatchSampler(Sampler):
     """
-    Groups by key computed from dataset.index[idx]
+    Groups by key computed from index
     """
     def __init__(self, dataset, batch_size: int, key_from_index, shuffle=True, drop_last=True):
         self.dataset = dataset

@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 import scipy.io as sio
 import torch
@@ -128,9 +127,6 @@ class WillettTrialDataset(Dataset):
             "subject_key": "t12"
         }
 
-        print(f"WILLETT Y: {y_ids}")
-        print(f"WILLETT Transcription: {text}")
-
         return x_t, y_t, y_len, text, meta
 
 
@@ -160,28 +156,4 @@ def collate_willett_trials(batch):
         "meta": list(metas),
     }
 
-
-if __name__ == "__main__":
-
-    phone2id = build_phone2id_from_tokens(TOKENS)
-    lex = load_lexicon_nostress("data/assets/lexicon_nostress.txt")
-
-    targeter = PhonemeTargeter(
-        lexicon=lex,
-        phone2id=phone2id,
-        sil_phone="sil",
-        use_sil_between_words=True,
-        drop_oov_words=True,
-    )
-
-    ds = WillettTrialDataset("data/WilletData/train", use_area6v_only=True, targeter=targeter, max_target_len=500)
-    dl = DataLoader(ds, batch_size=8, shuffle=True, num_workers=0, collate_fn=collate_willett_trials)
-
-    batch = next(iter(dl))
-    print(batch["input_features"].shape)
-    print(batch["n_time_steps"][:5])
-    print("y:", batch["seq_class_ids"].shape, "y_lens:", batch["phone_seq_lens"][:5])
-    print("y min/max:", int(batch["seq_class_ids"].min()), int(batch["seq_class_ids"].max()))
-    print(batch["texts"][0])
-    print(batch["meta"][0])
 

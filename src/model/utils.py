@@ -12,7 +12,7 @@ def get_device():
     return torch.device("cpu")
 
 
-def save_checkpoint(model, optimizer, step: int, extra: dict | None = None, folder="checkpoints", base_name="ckpt"):
+def save_checkpoint(model, optimizer, step, extra = None, folder="checkpoints", base_name="ckpt"):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -34,14 +34,14 @@ def save_checkpoint(model, optimizer, step: int, extra: dict | None = None, fold
         "timestamp": datetime.now().isoformat(),
     }
     torch.save(ckpt, full_path)
-    print(f"✅ saved checkpoint to {full_path}")
+    print(f"Saved checkpoint to {full_path}")
 
     if not is_manual:
         auto_ckpts = sorted([f for f in folder.glob(f"{base_name}_*.pt") if not f.name.startswith("_")],
                             key=lambda x: x.stat().st_mtime)
         for old_ckpt in auto_ckpts[:-5]:
             old_ckpt.unlink()
-            print(f"🗑️ deleted old checkpoint: {old_ckpt.name}")
+            print(f"Deleted old checkpoint: {old_ckpt.name}")
 
 
 
