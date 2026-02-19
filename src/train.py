@@ -107,7 +107,7 @@ def train_mixed(model, criterion, mixed_iter, device, steps=1000, log_every=50, 
                     folder=save_folder,
                     base_name=save_base
                 )
-                pbar.write(f"✅ saved best (loss={best_loss:.4f})")
+                pbar.write(f" saved best (loss={best_loss:.4f})")
 
     return model
 
